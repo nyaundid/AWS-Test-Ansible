@@ -1,0 +1,91 @@
+---
+
+- name: update all software, create administrator on each system
+ 
+  hosts: all
+ 
+  remote_user: ec2-user
+ 
+  become: yes
+ 
+  become_method: sudo
+  vars:
+   administrator_name: corpadmin
+   password: "{{ 'mypassword' | password_hash('sha512', 'mysecretsalt') }}"
+
+  tasks:
+  - name: Create user
+    user:
+     name: "{{ administrator_name }}"
+     password: "{{ password }}"
+
+
+
+
+
+- name: start nginx on web1
+  hosts: web1
+  remote_user: ec2-user
+ 
+  become: yes
+ 
+  become_method: sudo
+  tasks:
+  - name: install nginx
+    yum:
+      name=nginx
+      state=present
+    notify: restart-nginx-service
+    
+
+
+
+  - name: Ensure default.conf.j2 is present
+    template:
+      src=default.conf.j2
+      dest=/etc/nginx/conf.d/default.conf
+
+  - name: start nginx
+    service: name=nginx state=started
+  
+  handlers:
+    - name: restart-nginx-service
+      service: name=nginx
+               enabled=yes
+               state=started
+
+
+- name: Install MySQL
+  hosts: database1
+  remote_user: ec2-user
+ 
+  become: yes
+ 
+  become_method: sudo
+  tasks:
+  - name: Mysql first
+    yum: name=mysql-server state=installed
+    notify:
+    - restart mysql
+
+
+
+
+# create a series of directories with 5 numbers for some reason
+  - name: directories
+    file: 
+     dest=/var/data/client{{ item }} 
+     state=directory 
+    with_sequence: start=1 end=5
+
+
+  handlers:
+    - name: start mysql
+      service: name=mysqld
+               enabled=yes
+               state=started
+    - name: restart mysql
+      service: name=mysqld
+               enabled=yes
+               state=restarted
+
